@@ -1,0 +1,14 @@
+[
+  {
+    "empleadoId": "1777084350707",
+    "descripcion": "Vacaciones",
+    "estado": "pendiente",
+    "id": "1777162592074"
+  },
+  {
+    "empleadoId": "1777245157367",
+    "descripcion": "Licencia por enfermedad",
+    "estado": "pendiente",
+    "id": "1777245233738"
+  }
+]
