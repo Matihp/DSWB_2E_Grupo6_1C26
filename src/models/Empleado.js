@@ -1,26 +1,16 @@
-const BaseModel = require('./BaseModel');
+const mongoose = require('mongoose');
 
-class Empleado extends BaseModel {
-    constructor() {
-        super('empleados.json');
+const empleadoSchema = new mongoose.Schema({
+    nombre: {
+        type: String,
+        required: [true, "Nombre y empresaId son obligatorios para el empleado"],
+        minlength: [4, "El nombre y apellido del empleado debe tener un mínimo de 4 caracteres"]
+    },
+    empresaId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Empresa',
+        required: [true, "Nombre y empresaId son obligatorios para el empleado"]
     }
+}, { versionKey: false });
 
-    crear(datosEmpleado) {
-        if (!datosEmpleado.nombre || !datosEmpleado.empresaId) {
-            throw new Error("Nombre y empresaId son obligatorios para el empleado");
-        }
-        if (datosEmpleado.nombre.trim().length < 4) {
-            throw new Error("El nombre y apellido del empleado debe tener un mínimo de 4 caracteres");
-        }
-        return super.crear(datosEmpleado);
-    }
-
-    actualizar(id, datosEmpleado) {
-        if (datosEmpleado.nombre && datosEmpleado.nombre.trim().length < 4) {
-            throw new Error("El nombre y apellido del empleado debe tener un mínimo de 4 caracteres");
-        }
-        return super.actualizar(id, datosEmpleado);
-    }
-}
-
-module.exports = new Empleado();
+module.exports = mongoose.model('Empleado', empleadoSchema);
