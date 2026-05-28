@@ -1,8 +1,13 @@
+require('dotenv').config();
 const express = require('express');
 const path = require('path');
+const connectDB = require('./config/db');
 const auditMiddleware = require('./middleware/audit');
 
-// Importacion de rutas
+// Conexión a Base de Datos
+connectDB();
+
+// Importación de rutas
 const viewRoutes = require('./routes/viewRoutes');
 const empresaRoutes = require('./routes/empresaRoutes');
 const empleadoRoutes = require('./routes/empleadoRoutes');
