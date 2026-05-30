@@ -1,28 +1,20 @@
-const BaseModel = require('./BaseModel');
+const mongoose = require('mongoose');
 
-class Novedad extends BaseModel {
-    constructor() {
-        super('novedades.json');
+const novedadSchema = new mongoose.Schema({
+    empleadoId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Empleado',
+        required: [true, "empleadoId y descripcion son obligatorios para la novedad"]
+    },
+    descripcion: {
+        type: String,
+        required: [true, "empleadoId y descripcion son obligatorios para la novedad"],
+        minlength: [8, "La descripción de la novedad debe tener al menos 8 caracteres"]
+    },
+    estado: {
+        type: String,
+        default: 'pendiente'
     }
+}, { versionKey: false });
 
-    crear(datosNovedad) {
-        if (!datosNovedad.empleadoId || !datosNovedad.descripcion) {
-            throw new Error("empleadoId y descripcion son obligatorios para la novedad");
-        }
-        if (datosNovedad.descripcion.trim().length < 8) {
-            throw new Error("La descripción de la novedad debe tener al menos 8 caracteres");
-        }
-        // Estado por defecto
-        datosNovedad.estado = datosNovedad.estado || 'pendiente'; 
-        return super.crear(datosNovedad);
-    }
-
-    actualizar(id, datosNovedad) {
-        if (datosNovedad.descripcion && datosNovedad.descripcion.trim().length < 8) {
-            throw new Error("La descripción de la novedad debe tener al menos 8 caracteres");
-        }
-        return super.actualizar(id, datosNovedad);
-    }
-}
-
-module.exports = new Novedad();
+module.exports = mongoose.model('Novedad', novedadSchema);
