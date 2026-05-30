@@ -1,55 +1,68 @@
-const liquidacionModel = require('../models/Liquidacion');
-const empleadoModel = require('../models/Empleado');
+const Liquidacion = require('../models/Liquidacion');
+const Empleado = require('../models/Empleado');
 
 const LiquidacionController = {
-    obtenerTodos: (req, res) => {
-        const liquidaciones = liquidacionModel.obtenerTodos();
-        res.status(200).json(liquidaciones);
-    },   
-    buscarPorId: (req, res) => {
-        const liquidacion = liquidacionModel.buscarPorId(req.params.id);
-        if (!liquidacion) {
-            return res.status(404).json({ error: "Liquidación no encontrada" });
+    obtenerTodos: async (req, res, next) => {
+        try {
+            const liquidaciones = await Liquidacion.find();
+            res.status(200).json(liquidaciones);
+        } catch (error) {
+            next(error);
         }
-        res.status(200).json(liquidacion);
+    },   
+    buscarPorId: async (req, res, next) => {
+        try {
+            const liquidacion = await Liquidacion.findById(req.params.id);
+            if (!liquidacion) {
+                return res.status(404).json({ error: "Liquidación no encontrada" });
+            }
+            res.status(200).json(liquidacion);
+        } catch (error) {
+            next(error);
+        }
     },  
-    crear: (req, res) => {
+    crear: async (req, res, next) => {
         try {
             if (req.body.empleadoId) {
-                const empleado = empleadoModel.buscarPorId(req.body.empleadoId);
+                const empleado = await Empleado.findById(req.body.empleadoId);
                 if (!empleado) {
                     return res.status(400).json({ error: "El empleado especificado no existe" });
                 }
             }
-            const nuevaLiquidacion = liquidacionModel.crear(req.body);
+            const nuevaLiquidacion = new Liquidacion(req.body);
+            await nuevaLiquidacion.save();
             res.status(201).json(nuevaLiquidacion);
         } catch (error) {
-            res.status(400).json({ error: error.message });
+            next(error);
         }
     },   
-    actualizar: (req, res) => {
+    actualizar: async (req, res, next) => {
         try {
             if (req.body.empleadoId) {
-                const empleado = empleadoModel.buscarPorId(req.body.empleadoId);
+                const empleado = await Empleado.findById(req.body.empleadoId);
                 if (!empleado) {
                     return res.status(400).json({ error: "El empleado especificado no existe" });
                 }
             }
-            const actualizada = liquidacionModel.actualizar(req.params.id, req.body);
+            const actualizada = await Liquidacion.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
             if (!actualizada) {
                 return res.status(404).json({ error: "Liquidación no encontrada para actualizar" });
             }
             res.status(200).json(actualizada);
         } catch (error) {
-            res.status(400).json({ error: error.message });
+            next(error);
         }
     },   
-    eliminar: (req, res) => {
-        const eliminada = liquidacionModel.eliminar(req.params.id);
-        if (!eliminada) {
-            return res.status(404).json({ error: "Liquidación no encontrada para eliminar" });
+    eliminar: async (req, res, next) => {
+        try {
+            const eliminada = await Liquidacion.findByIdAndDelete(req.params.id);
+            if (!eliminada) {
+                return res.status(404).json({ error: "Liquidación no encontrada para eliminar" });
+            }
+            res.status(200).json({ mensaje: "Liquidación eliminada correctamente", liquidacion: eliminada });
+        } catch (error) {
+            next(error);
         }
-        res.status(200).json({ mensaje: "Liquidación eliminada correctamente", liquidacion: eliminada });
     }
 };
 
