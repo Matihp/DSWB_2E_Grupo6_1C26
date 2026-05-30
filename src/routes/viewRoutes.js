@@ -5,37 +5,50 @@ const novedadModel = require('../models/Novedad');
 const empleadoModel = require('../models/Empleado');
 const DashboardController = require('../controllers/DashboardController');
 
+const mapId = (doc) => {
+    if (!doc) return doc;
+    return { ...doc, id: doc._id.toString() };
+};
+const mapIds = (docs) => docs.map(mapId);
+
 router.get('/', DashboardController.obtenerIndicadores);
 
-
 // Vistas Empresas
-router.get('/empresas', (req, res) => {
-    const empresas = empresaModel.obtenerTodos();
-    res.render('empresas/index', { empresas });
+router.get('/empresas', async (req, res) => {
+    const empresas = await empresaModel.find().lean();
+    res.render('empresas/index', { empresas: mapIds(empresas) });
 });
 
 router.get('/empresas/nuevo', (req, res) => {
     res.render('empresas/nuevo');
 });
 
-router.get('/empresas/:id/editar', (req, res) => {
-    const empresa = empresaModel.buscarPorId(req.params.id);
-    if (!empresa) return res.redirect('/empresas');
-    res.render('empresas/editar', { empresa });
-});
-
-router.post('/empresas/:id/editar', (req, res) => {
+router.post('/empresas', async (req, res) => {
     try {
-        empresaModel.actualizar(req.params.id, req.body);
+        await empresaModel.create(req.body);
         res.redirect('/empresas');
     } catch (error) {
         res.status(400).send(`<h2>Error</h2><p>${error.message}</p><a href='/empresas'>Volver</a>`);
     }
 });
 
-router.post('/empresas/:id/eliminar', (req, res) => {
-    const empleados = empleadoModel.obtenerTodos();
-    const tieneEmpleados = empleados.some(e => e.empresaId === req.params.id);
+router.get('/empresas/:id/editar', async (req, res) => {
+    const empresa = await empresaModel.findById(req.params.id).lean();
+    if (!empresa) return res.redirect('/empresas');
+    res.render('empresas/editar', { empresa: mapId(empresa) });
+});
+
+router.post('/empresas/:id/editar', async (req, res) => {
+    try {
+        await empresaModel.findByIdAndUpdate(req.params.id, req.body, { runValidators: true });
+        res.redirect('/empresas');
+    } catch (error) {
+        res.status(400).send(`<h2>Error</h2><p>${error.message}</p><a href='/empresas'>Volver</a>`);
+    }
+});
+
+router.post('/empresas/:id/eliminar', async (req, res) => {
+    const tieneEmpleados = await empleadoModel.exists({ empresaId: req.params.id });
     
     if (tieneEmpleados) {
         return res.status(400).send(`
@@ -48,92 +61,107 @@ router.post('/empresas/:id/eliminar', (req, res) => {
         `);
     }
     
-    empresaModel.eliminar(req.params.id);
+    await empresaModel.findByIdAndDelete(req.params.id);
     res.redirect('/empresas');
 });
 
 // Vistas Novedades
-router.get('/novedades', (req, res) => {
-    let novedades = novedadModel.obtenerTodos();
+router.get('/novedades', async (req, res) => {
     const filtroEstado = req.query.estado;
+    const query = filtroEstado ? { estado: filtroEstado } : {};
     
-    if (filtroEstado) {
-        novedades = novedades.filter(n => n.estado === filtroEstado);
-    }
+    const novedades = await novedadModel.find(query).lean();
+    const empleados = await empleadoModel.find().lean();
     
-    const empleados = empleadoModel.obtenerTodos();
     const novedadesConEmpleado = novedades.map(n => {
-        const emp = empleados.find(e => e.id === n.empleadoId);
-        return { ...n, empleadoNombre: emp ? emp.nombre : 'Desconocido' };
+        const emp = empleados.find(e => e._id.toString() === n.empleadoId.toString());
+        return { ...mapId(n), empleadoNombre: emp ? emp.nombre : 'Desconocido' };
     });
 
     res.render('novedades/index', { novedades: novedadesConEmpleado, filtroEstado });
 });
 
-router.get('/novedades/nuevo', (req, res) => {
-    const empleados = empleadoModel.obtenerTodos();
-    res.render('novedades/nuevo', { empleados });
+router.get('/novedades/nuevo', async (req, res) => {
+    const empleados = await empleadoModel.find().lean();
+    res.render('novedades/nuevo', { empleados: mapIds(empleados) });
 });
 
-router.get('/novedades/:id/editar', (req, res) => {
-    const novedad = novedadModel.buscarPorId(req.params.id);
-    if (!novedad) return res.redirect('/novedades');
-    const empleados = empleadoModel.obtenerTodos();
-    res.render('novedades/editar', { novedad, empleados });
-});
-
-router.post('/novedades/:id/editar', (req, res) => {
+router.post('/novedades', async (req, res) => {
     try {
-        novedadModel.actualizar(req.params.id, req.body);
+        await novedadModel.create(req.body);
         res.redirect('/novedades');
     } catch (error) {
         res.status(400).send(`<h2>Error</h2><p>${error.message}</p><a href='/novedades'>Volver</a>`);
     }
 });
 
-router.post('/novedades/:id/estado', (req, res) => {
+router.get('/novedades/:id/editar', async (req, res) => {
+    const novedad = await novedadModel.findById(req.params.id).lean();
+    if (!novedad) return res.redirect('/novedades');
+    const empleados = await empleadoModel.find().lean();
+    res.render('novedades/editar', { novedad: mapId(novedad), empleados: mapIds(empleados) });
+});
+
+router.post('/novedades/:id/editar', async (req, res) => {
+    try {
+        await novedadModel.findByIdAndUpdate(req.params.id, req.body, { runValidators: true });
+        res.redirect('/novedades');
+    } catch (error) {
+        res.status(400).send(`<h2>Error</h2><p>${error.message}</p><a href='/novedades'>Volver</a>`);
+    }
+});
+
+router.post('/novedades/:id/estado', async (req, res) => {
     const { estado } = req.body;
     if (['pendiente', 'procesada', 'rechazada'].includes(estado)) {
-        novedadModel.actualizar(req.params.id, { estado });
+        await novedadModel.findByIdAndUpdate(req.params.id, { estado });
     }
     res.redirect('/novedades');
 });
 
-router.post('/novedades/:id/eliminar', (req, res) => {
-    novedadModel.eliminar(req.params.id);
+router.post('/novedades/:id/eliminar', async (req, res) => {
+    await novedadModel.findByIdAndDelete(req.params.id);
     res.redirect('/novedades');
 });
 
 // Vistas Empleados
-router.get('/empleados', (req, res) => {
-    const empleados = empleadoModel.obtenerTodos();
-    res.render('empleados/index', { empleados });
+router.get('/empleados', async (req, res) => {
+    const empleados = await empleadoModel.find().lean();
+    res.render('empleados/index', { empleados: mapIds(empleados) });
 });
 
-router.get('/empleados/nuevo', (req, res) => {
-    const empresas = empresaModel.obtenerTodos();
-    res.render('empleados/nuevo', { empresas });
+router.get('/empleados/nuevo', async (req, res) => {
+    const empresas = await empresaModel.find().lean();
+    res.render('empleados/nuevo', { empresas: mapIds(empresas) });
 });
 
-router.get('/empleados/:id/editar', (req, res) => {
-    const empleado = empleadoModel.buscarPorId(req.params.id);
-    if (!empleado) return res.redirect('/empleados');
-    const empresas = empresaModel.obtenerTodos();
-    res.render('empleados/editar', { empleado, empresas });
-});
-
-router.post('/empleados/:id/editar', (req, res) => {
+router.post('/empleados', async (req, res) => {
     try {
-        empleadoModel.actualizar(req.params.id, req.body);
+        await empleadoModel.create(req.body);
         res.redirect('/empleados');
     } catch (error) {
         res.status(400).send(`<h2>Error</h2><p>${error.message}</p><a href='/empleados'>Volver</a>`);
     }
 });
 
-router.post('/empleados/:id/eliminar', (req, res) => {
-    const novedades = novedadModel.obtenerTodos();
-    const tieneNovedades = novedades.some(n => n.empleadoId === req.params.id);
+router.get('/empleados/:id/editar', async (req, res) => {
+    const empleado = await empleadoModel.findById(req.params.id).lean();
+    if (!empleado) return res.redirect('/empleados');
+    const empresas = await empresaModel.find().lean();
+    res.render('empleados/editar', { empleado: mapId(empleado), empresas: mapIds(empresas) });
+});
+
+router.post('/empleados/:id/editar', async (req, res) => {
+    try {
+        await empleadoModel.findByIdAndUpdate(req.params.id, req.body, { runValidators: true });
+        res.redirect('/empleados');
+    } catch (error) {
+        res.status(400).send(`<h2>Error</h2><p>${error.message}</p><a href='/empleados'>Volver</a>`);
+    }
+});
+
+router.post('/empleados/:id/eliminar', async (req, res) => {
+    const tieneNovedades = await novedadModel.exists({ empleadoId: req.params.id });
     
     if (tieneNovedades) {
         return res.status(400).send(`
@@ -146,98 +174,98 @@ router.post('/empleados/:id/eliminar', (req, res) => {
         `);
     }
     
-    empleadoModel.eliminar(req.params.id);
+    await empleadoModel.findByIdAndDelete(req.params.id);
     res.redirect('/empleados');
 });
 
 // Vistas SOCIOS
 const socioModel = require('../models/Socio');
 
-router.get('/socios', (req, res) => {
-    const socios = socioModel.obtenerTodos();
-    res.render('socios/index', { socios });
+router.get('/socios', async (req, res) => {
+    const socios = await socioModel.find().lean();
+    res.render('socios/index', { socios: mapIds(socios) });
 });
 
 router.get('/socios/nuevo', (req, res) => {
     res.render('socios/nuevo');
 });
 
-router.post('/socios', (req, res) => {
+router.post('/socios', async (req, res) => {
     try {
-        socioModel.crear(req.body);
+        await socioModel.create(req.body);
         res.redirect('/socios');
     } catch (error) {
         res.status(400).send(`<h2>Error</h2><p>${error.message}</p><a href='/socios'>Volver</a>`);
     }
 });
 
-router.get('/socios/:id/editar', (req, res) => {
-    const socio = socioModel.buscarPorId(req.params.id);
+router.get('/socios/:id/editar', async (req, res) => {
+    const socio = await socioModel.findById(req.params.id).lean();
     if (!socio) return res.redirect('/socios');
-    res.render('socios/editar', { socio });
+    res.render('socios/editar', { socio: mapId(socio) });
 });
 
-router.post('/socios/:id/editar', (req, res) => {
+router.post('/socios/:id/editar', async (req, res) => {
     try {
-        socioModel.actualizar(req.params.id, req.body);
+        await socioModel.findByIdAndUpdate(req.params.id, req.body, { runValidators: true });
         res.redirect('/socios');
     } catch (error) {
         res.status(400).send(`<h2>Error</h2><p>${error.message}</p><a href='/socios'>Volver</a>`);
     }
 });
 
-router.post('/socios/:id/eliminar', (req, res) => {
-    socioModel.eliminar(req.params.id);
+router.post('/socios/:id/eliminar', async (req, res) => {
+    await socioModel.findByIdAndDelete(req.params.id);
     res.redirect('/socios');
 });
 
 // Vistas LIQUIDACIONES
 const liquidacionModel = require('../models/Liquidacion');
 
-router.get('/liquidaciones', (req, res) => {
-    const liquidaciones = liquidacionModel.obtenerTodos();
-    const empleados = empleadoModel.obtenerTodos();
+router.get('/liquidaciones', async (req, res) => {
+    const liquidaciones = await liquidacionModel.find().lean();
+    const empleados = await empleadoModel.find().lean();
     
     const liquidacionesConEmpleado = liquidaciones.map(l => {
-        const emp = empleados.find(e => e.id === l.empleadoId);
-        return { ...l, empleadoNombre: emp ? emp.nombre : 'Desconocido' };
+        const emp = empleados.find(e => e._id.toString() === l.empleadoId.toString());
+        return { ...mapId(l), empleadoNombre: emp ? emp.nombre : 'Desconocido' };
     });
     
     res.render('liquidaciones/index', { liquidaciones: liquidacionesConEmpleado });
 });
 
-router.get('/liquidaciones/nuevo', (req, res) => {
-    const empleados = empleadoModel.obtenerTodos();
-    res.render('liquidaciones/nuevo', { empleados });
+router.get('/liquidaciones/nuevo', async (req, res) => {
+    const empleados = await empleadoModel.find().lean();
+    res.render('liquidaciones/nuevo', { empleados: mapIds(empleados) });
 });
 
-router.post('/liquidaciones', (req, res) => {
+router.post('/liquidaciones', async (req, res) => {
     try {
-        liquidacionModel.crear(req.body);
+        await liquidacionModel.create(req.body);
         res.redirect('/liquidaciones');
     } catch (error) {
         res.status(400).send(`<h2>Error</h2><p>${error.message}</p><a href='/liquidaciones'>Volver</a>`);
     }
 });
 
-router.get('/liquidaciones/:id/editar', (req, res) => {
-    const liquidacion = liquidacionModel.buscarPorId(req.params.id);
+router.get('/liquidaciones/:id/editar', async (req, res) => {
+    const liquidacion = await liquidacionModel.findById(req.params.id).lean();
     if (!liquidacion) return res.redirect('/liquidaciones');
-    const empleados = empleadoModel.obtenerTodos();
-    res.render('liquidaciones/editar', { liquidacion, empleados });
+    const empleados = await empleadoModel.find().lean();
+    res.render('liquidaciones/editar', { liquidacion: mapId(liquidacion), empleados: mapIds(empleados) });
 });
 
-router.post('/liquidaciones/:id/editar', (req, res) => {
+router.post('/liquidaciones/:id/editar', async (req, res) => {
     try {
-        liquidacionModel.actualizar(req.params.id, req.body);
+        await liquidacionModel.findByIdAndUpdate(req.params.id, req.body, { runValidators: true });
         res.redirect('/liquidaciones');
     } catch (error) {
         res.status(400).send(`<h2>Error</h2><p>${error.message}</p><a href='/liquidaciones'>Volver</a>`);
     }
 });
 
-router.post('/liquidaciones/:id/eliminar', (req, res) => {
-    liquidacionModel.eliminar(req.params.id);
+router.post('/liquidaciones/:id/eliminar', async (req, res) => {
+    await liquidacionModel.findByIdAndDelete(req.params.id);
     res.redirect('/liquidaciones');
 });
 
