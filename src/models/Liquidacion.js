@@ -1,25 +1,20 @@
-const BaseModel = require('./BaseModel');
+const mongoose = require('mongoose');
 
-class Liquidacion extends BaseModel {
-    constructor() {
-        super('liquidaciones.json');
+const liquidacionSchema = new mongoose.Schema({
+    empleadoId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Empleado',
+        required: [true, "Empleado, mes y monto son obligatorios"]
+    },
+    mes: {
+        type: String,
+        required: [true, "Empleado, mes y monto son obligatorios"]
+    },
+    monto: {
+        type: Number,
+        required: [true, "Empleado, mes y monto son obligatorios"],
+        min: [0.01, "El monto de la liquidación debe ser mayor a 0"]
     }
-    crear(datosLiquidacion) {
-        if (!datosLiquidacion.empleadoId || !datosLiquidacion.mes || !datosLiquidacion.monto) {
-            throw new Error("Empleado, mes y monto son obligatorios");
-        }
-        if (Number(datosLiquidacion.monto) <= 0) {
-            throw new Error("El monto de la liquidación debe ser mayor a 0");
-        }
-        return super.crear(datosLiquidacion);
-    }
+}, { versionKey: false });
 
-    actualizar(id, datosLiquidacion) {
-        if (datosLiquidacion.monto && Number(datosLiquidacion.monto) <= 0) {
-            throw new Error("El monto de la liquidación debe ser mayor a 0");
-        }
-        return super.actualizar(id, datosLiquidacion);
-    }
-}
-
-module.exports = new Liquidacion();
+module.exports = mongoose.model('Liquidacion', liquidacionSchema);
