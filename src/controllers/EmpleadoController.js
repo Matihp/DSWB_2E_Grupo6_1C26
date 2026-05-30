@@ -1,50 +1,62 @@
-const empleadoModel = require('../models/Empleado');
+const Empleado = require('../models/Empleado');
+const Novedad = require('../models/Novedad');
 
 const EmpleadoController = {
-    obtenerTodos: (req, res) => {
-        const empleados = empleadoModel.obtenerTodos();
-        res.status(200).json(empleados);
-    },    
-    buscarPorId: (req, res) => {
-        const empleado = empleadoModel.buscarPorId(req.params.id);
-        if (!empleado) {
-            return res.status(404).json({ error: "Empleado no encontrado" });
-        }
-        res.status(200).json(empleado);
-    },    
-    crear: (req, res) => {
+    obtenerTodos: async (req, res, next) => {
         try {
-            const nuevoEmpleado = empleadoModel.crear(req.body);
+            const empleados = await Empleado.find();
+            res.status(200).json(empleados);
+        } catch (error) {
+            next(error);
+        }
+    },    
+    buscarPorId: async (req, res, next) => {
+        try {
+            const empleado = await Empleado.findById(req.params.id);
+            if (!empleado) {
+                return res.status(404).json({ error: "Empleado no encontrado" });
+            }
+            res.status(200).json(empleado);
+        } catch (error) {
+            next(error);
+        }
+    },    
+    crear: async (req, res, next) => {
+        try {
+            const nuevoEmpleado = new Empleado(req.body);
+            await nuevoEmpleado.save();
             res.status(201).json(nuevoEmpleado);
         } catch (error) {
-            res.status(400).json({ error: error.message });
+            next(error);
         }
     },    
-    actualizar: (req, res) => {
+    actualizar: async (req, res, next) => {
         try {
-            const actualizado = empleadoModel.actualizar(req.params.id, req.body);
+            const actualizado = await Empleado.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
             if (!actualizado) {
                 return res.status(404).json({ error: "Empleado no encontrado para actualizar" });
             }
             res.status(200).json(actualizado);
         } catch (error) {
-            res.status(400).json({ error: error.message });
+            next(error);
         }
     },   
-    eliminar: (req, res) => {
-        const novedadModel = require('../models/Novedad');
-        const novedades = novedadModel.obtenerTodos();
-        const tieneNovedades = novedades.some(n => n.empleadoId === req.params.id);
-        
-        if (tieneNovedades) {
-            return res.status(400).json({ error: "No se puede eliminar el empleado porque tiene novedades asociadas. Elimínelas primero." });
+    eliminar: async (req, res, next) => {
+        try {
+            const tieneNovedades = await Novedad.exists({ empleadoId: req.params.id });
+            
+            if (tieneNovedades) {
+                return res.status(400).json({ error: "No se puede eliminar el empleado porque tiene novedades asociadas. Elimínelas primero." });
+            }
+            
+            const eliminado = await Empleado.findByIdAndDelete(req.params.id);
+            if (!eliminado) {
+                return res.status(404).json({ error: "Empleado no encontrado para eliminar" });
+            }
+            res.status(200).json({ mensaje: "Empleado eliminado", empleado: eliminado });
+        } catch (error) {
+            next(error);
         }
-        
-        const eliminado = empleadoModel.eliminar(req.params.id);
-        if (!eliminado) {
-            return res.status(404).json({ error: "Empleado no encontrado para eliminar" });
-        }
-        res.status(200).json({ mensaje: "Empleado eliminado", empleado: eliminado });
     }
 };
 
